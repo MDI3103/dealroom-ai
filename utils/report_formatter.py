@@ -1,0 +1,170 @@
+"""
+utils/report_formatter.py
+Formats the final orchestrator output into clean text/markdown/JSON
+for the Streamlit UI, CLI output, and email delivery.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from typing import Any, Dict
+
+
+def format_currency(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if v >= 1e12:
+        return f"${v/1e12:.1f}T"
+    if v >= 1e9:
+        return f"${v/1e9:.1f}B"
+    if v >= 1e6:
+        return f"${v/1e6:.0f}M"
+    return f"${v:,.0f}"
+
+
+def format_percentage(value: Any) -> str:
+    if value is None:
+        return "N/A"
+    try:
+        return f"{float(value):+.1f}%"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def verdict_color(verdict: str) -> str:
+    """Return ANSI-style color tag for a verdict string."""
+    return {"BUY": "green", "HOLD": "yellow", "AVOID": "red"}.get(verdict, "white")
+
+
+def to_markdown_report(output: Dict[str, Any]) -> str:
+    """
+    Convert full orchestrator output to a clean Markdown report.
+    Suitable for saving, emailing, or printing.
+    """
+    report = output.get("report", {})
+    raw = output.get("raw_data", {})
+    company = output.get("company", "Unknown")
+    duration = output.get("duration_seconds", 0)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+
+    fin = raw.get("financial", {})
+    risk = raw.get("risk", {})
+    sent = raw.get("sentiment", {})
+
+    verdict = report.get("investment_verdict", "INSUFFICIENT DATA")
+    verdict_icons = {"BUY": "🟢", "HOLD": "🟡", "AVOID": "🔴", "INSUFFICIENT DATA": "⚪"}
+
+    lines = [
+        f"# 🏦 DealRoom AI — Due Diligence Report",
+        f"**Company:** {company}  ",
+        f"**Generated:** {timestamp}  ",
+        f"**Analysis time:** {duration}s  ",
+        f"**Agents succeeded:** {output.get('agents_succeeded', 0)}/4",
+        "",
+        "---",
+        "",
+        f"## {verdict_icons.get(verdict, '⚪')} Investment Verdict: {verdict}",
+        f"**Confidence Score:** {report.get('confidence_score', 0)}%",
+        "",
+        f"### Executive Summary",
+        report.get("executive_summary", "N/A"),
+        "",
+        "---",
+        "",
+        "## 💰 Financial Overview",
+        f"| Metric | Value |",
+        f"|--------|-------|",
+        f"| Market Cap | {fin.get('market_cap', 'N/A')} |",
+        f"| Revenue TTM | {fin.get('revenue_ttm', 'N/A')} |",
+        f"| Net Income | {fin.get('net_income', 'N/A')} |",
+        f"| Revenue Growth | {fin.get('revenue_growth_pct', 'N/A')}% |",
+        f"| P/E Ratio | {fin.get('pe_ratio', 'N/A')} |",
+        f"| Employees | {fin.get('employees', 'N/A')} |",
+        f"| Sector | {fin.get('sector', 'N/A')} |",
+        "",
+        "**Financial Highlights:**",
+    ]
+
+    for hl in report.get("financial_highlights", []):
+        lines.append(f"- {hl}")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## 🌍 Market Opportunity",
+        report.get("market_opportunity", "N/A"),
+        "",
+        "---",
+        "",
+        f"## {risk.get('risk_indicator', '⚪')} Risk Assessment",
+        f"**Overall Risk Level:** {risk.get('overall_risk_level', 'N/A').upper()}",
+        "",
+        "**Key Risks:**",
+    ]
+
+    for r in report.get("key_risks", []):
+        lines.append(f"- {r}")
+
+    lines += [
+        "",
+        f"**Recommendation:** {risk.get('recommendation', 'N/A')}",
+        "",
+        "---",
+        "",
+        f"## {sent.get('sentiment_emoji', '➡️')} Sentiment & News",
+        f"**Overall Sentiment:** {sent.get('overall_sentiment', 'N/A')}  ",
+        f"**Articles Analysed:** {sent.get('article_count', 0)}  ",
+        f"**Reddit Mentions:** {sent.get('reddit_mention_count', 0)}",
+        "",
+        report.get("sentiment_summary", ""),
+        "",
+        "**Top Headlines:**",
+    ]
+
+    for h in raw.get("top_headlines", [])[:5]:
+        sentiment_emoji = {"positive": "🟢", "negative": "🔴", "neutral": "⚪"}.get(
+            h.get("sentiment_label", "neutral"), "⚪"
+        )
+        lines.append(f"- {sentiment_emoji} {h.get('title', '')} — *{h.get('source', '')}*")
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## 📋 Full Recommendation",
+        report.get("recommendation", "N/A"),
+        "",
+        f"*Data quality: {report.get('data_quality', 'N/A')}*",
+        "",
+        "---",
+        "",
+        "## ⚙️ Agent Status",
+        "| Agent | Status | Duration |",
+        "|-------|--------|----------|",
+    ]
+
+    for agent_id, ar in output.get("agent_results", {}).items():
+        ok = "✅" if ar.get("success") else "❌"
+        dur = f"{ar.get('duration', 0):.1f}s"
+        lines.append(f"| {agent_id.replace('_', ' ').title()} | {ok} | {dur} |")
+
+    lines += [
+        "",
+        "---",
+        "*Report generated by DealRoom AI — Google ADK + A2A + MCP*",
+    ]
+
+    return "\n".join(lines)
+
+
+def to_json_report(output: Dict[str, Any], indent: int = 2) -> str:
+    """Serialize the full output to JSON, stripping non-serializable objects."""
+    def default_serializer(obj):
+        return str(obj)
+    return json.dumps(output, indent=indent, default=default_serializer)

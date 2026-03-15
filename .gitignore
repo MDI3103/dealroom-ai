@@ -1,0 +1,22 @@
+﻿# Secrets
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# Cache
+*.log
+dealroom_cache.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
