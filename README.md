@@ -12,30 +12,7 @@ Type any company name. DealRoom AI dispatches 5 specialist agents in parallel
 that collaborate via the A2A protocol to produce an institutional-grade
 investment report in under 30 seconds.
 
----
 
-## Architecture
-
-\\\
-User Input
-    │
-    ▼
-OrchestratorAgent (Google ADK)
-    │
-    ├── MarketResearchAgent   → Wikipedia, Tavily, Web Search
-    ├── FinancialAnalystAgent → yFinance, Live Market Data
-    ├── RiskAssessorAgent     → Multi-source Risk Scoring
-    ├── SentimentNewsAgent    → NewsAPI + Gemini AI Scoring
-    └── CompetitorAgent       → Competitor Intelligence
-            │
-            ▼  (A2A Messages)
-    Gemini 2.0 Flash Synthesis
-            │
-            ▼
-    Investment Report (BUY / HOLD / AVOID)
-\\\
-
----
 
 ## Tech Stack
 
